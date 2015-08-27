@@ -64,16 +64,16 @@
 ;; qualified name new \C() must be used.
 
 ;;; Code:
+
+(defun semantic-php--name-prepend-ns (symbol-name ns-name)
+  "Join NS-NAME and SYMBOL-NAME using a namespace separator.
 
-(defun semantic-php--name-join-ns (first-symbol second-symbol)
-  "Join FIRST-SYMBOL and SECOND-SYMBOL using a namespace separator.
-
-If FIRST-SYMBOL is nil, SECOND-SYMBOL is returned as is. This is
+If NS-NAME is nil, SYMBOL-NAME is returned as is. This is
 handy to prepend the current namespace name to partially
 qualified or unqualified symbols."
-  (if first-symbol
-      (concat first-symbol "\\" second-symbol)
-    second-symbol))
+  (if ns-name
+      (concat ns-name "\\" symbol-name)
+    symbol-name))
 
 (defun semantic-php--name-fully-qualified-p (symbol-name)
   "Tests if SYMBOL-NAME is a fully qualified name."
@@ -86,11 +86,12 @@ qualified or unqualified symbols."
 (defun semantic-php--name-qualified-alternatives (symbol-name current-ns)
   "Given an unqualified SYMBOL-NAME it returns a list of is
 possible qualified names as available in CURRENT-NS."
-  (if (not current-ns)
-      ;; We're in the global namespace, so we return the singleton
-      ;; list with symbol-name.
-      (list symbol-name)
-    (list (semantic-php--name-join-ns current-ns symbol-name) symbol-name)))
+  (if current-ns
+      (list (semantic-php--name-prepend-ns symbol-name current-ns) symbol-name)
+
+    ;; We're in the global namespace, so we return the singleton
+    ;; list with symbol-name.
+    (list symbol-name)))
 
 (defun semantic-php-resolve-name (symbol-name &optional current-ns &optional import-rules)
   "Resolves SYMBOL-NAME into a fully qualified name.
@@ -100,35 +101,51 @@ elements for all partially and unqualified names, i.e. the
 possible namespace local and global version of the symbol same."
   (if (semantic-php--name-fully-qualified-p symbol-name)
       (list (semantic-php--name-strip-leading-ns symbol-name))
-    (list (semantic-php--name-join-ns current-ns (semantic-php--name-strip-leading-ns symbol-name)))))
+    (semantic-php--name-qualified-alternatives symbol-name current-ns)))
 
 (ert-deftest semantic-php-name-resolution-fully-qualified-in-global ()
   "Tests the resolution of a fully qualified name in the global namespace."
-  (should (equal (list "in_array") (semantic-php-resolve-name "\\in_array")))
-  (should (equal (list "DateTime") (semantic-php-resolve-name "\\DateTime")))
-  (should (equal (list "Zend\\Console\\Getopt") (semantic-php-resolve-name "\\Zend\\Console\\Getopt"))))
+  (should (equal
+           (list "in_array")
+           (semantic-php-resolve-name "\\in_array")))
+  (should (equal
+           (list "DateTime")
+           (semantic-php-resolve-name "\\DateTime")))
+  (should (equal
+           (list "Zend\\Console\\Getopt")
+           (semantic-php-resolve-name "\\Zend\\Console\\Getopt"))))
 
 (ert-deftest semantic-php-name-resolution-fully-qualified-in-ns ()
   "Tests the resolution of a fully qualified name in a namespace"
-  (should (equal (list "in_array") (semantic-php-resolve-name "\\in_array" "MainNs")))
-  (should (equal (list "DateTime") (semantic-php-resolve-name "\\DateTime" "MainNs")))
-  (should (equal (list "MyNs\\MyClass") (semantic-php-resolve-name "\\MyNs\\MyClass" "MainNs"))))
+  (should (equal
+           (list "in_array")
+           (semantic-php-resolve-name "\\in_array" "MainNs")))
+  (should (equal
+           (list "DateTime")
+           (semantic-php-resolve-name "\\DateTime" "MainNs")))
+  (should (equal
+           (list "MyNs\\MyClass")
+           (semantic-php-resolve-name "\\MyNs\\MyClass" "MainNs"))))
 
 (ert-deftest semantic-php-name-resolution-unqualified-in-global ()
   "Tests the resolution of an unqualified name in a the global namespace."
-  (should (equal (list "in_array") (semantic-php-resolve-name "in_array")))
-  (should (equal (list "DateTime") (semantic-php-resolve-name "DateTime")))
-  (should (equal (list "Zend\\Console\\Getopt") (semantic-php-resolve-name "Zend\\Console\\Getopt"))))
+  (should (equal
+           (list "in_array")
+           (semantic-php-resolve-name "in_array")))
+  (should (equal
+           (list "DateTime")
+           (semantic-php-resolve-name "DateTime")))
+  (should (equal
+           (list "Zend\\Console\\Getopt")
+           (semantic-php-resolve-name "Zend\\Console\\Getopt"))))
 
 (ert-deftest semantic-php-name-resolution-unqualified-in-ns ()
   (should (equal
            (list "MainNs\\in_array" "in_array")
            (semantic-php-resolve-name "in_array" "MainNs")))
-
   (should (equal
            (list "MainNs\\DateTime" "DateTime")
            (semantic-php-resolve-name "DateTime" "MainNs")))
-
   (should (equal
            (list "MainNs\\MyNs\\MyClass" "MyNs\\MyClass")
            (semantic-php-resolve-name "MyNs\\MyClass" "MainNs"))))

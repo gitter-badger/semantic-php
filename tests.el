@@ -151,12 +151,13 @@ this part is replaced with the full namespace name."
 (defun semantic-php--name-qualified-alternatives (symbol-name current-ns)
   "Given an unqualified SYMBOL-NAME it returns a list of is
 possible qualified names as available in CURRENT-NS."
-    (if current-ns
-        (append (list (semantic-php--name-prepend-ns symbol-name current-ns))
-                (list (semantic-php--name-dereference symbol-name)))
-      (delete-dups (list
-       symbol-name
-       (semantic-php--name-dereference symbol-name)))))
+  (if current-ns
+      (delete-dups
+       (list (semantic-php--name-prepend-ns symbol-name current-ns)
+             (semantic-php--name-dereference symbol-name)
+             symbol-name))
+    (delete-dups
+     (list symbol-name (semantic-php--name-dereference symbol-name)))))
 
 (ert-deftest semantic-php-name-resolution-unqualified-in-global ()
   "Tests the resolution of an unqualified name in a the global namespace."
@@ -230,16 +231,16 @@ possible qualified names as available in CURRENT-NS."
              (list "Version")
              (semantic-php-resolve-name "Version" nil)))))
 
-;; (ert-deftest semantic-php-name-resolution-unqualified-with-alias-in-global ()
-;;   (let ((semantic-php-aliased-names
-;;          (list (cons "TestDate" "Carbon\\Carbon")
-;;                (cons "TestCase" "PHPUnit_Framework_TestCase"))))
-;;     ;; (should (equal
-;;     ;;          (list "MainNs\\TestCase" "PHPUnit_Framework_TestCase")
-;;     ;;          (semantic-php-resolve-name "TestCase" "MainNs")))
-;;     ;; (should (equal
-;;              ;; (list "MainNs\\TestDate" "TestDate" "Carbon\\Carbon")
-;;              (semantic-php-resolve-name "TestDate" "MainNs")))))
+(ert-deftest semantic-php-name-resolution-unqualified-with-alias-in-global ()
+  (let ((semantic-php-aliased-names
+         (list (cons "TestDate" "Carbon\\Carbon")
+               (cons "TestCase" "PHPUnit_Framework_TestCase"))))
+    (should (equal
+             (list "MainNs\\TestCase" "PHPUnit_Framework_TestCase" "TestCase")
+             (semantic-php-resolve-name "TestCase" "MainNs")))
+    (should (equal
+             (list "MainNs\\TestDate" "Carbon\\Carbon" "TestDate")
+             (semantic-php-resolve-name "TestDate" "MainNs")))))
 
 (ert-deftest semantic-php-name-resolution-with-alias-and-no-known-aliases ()
     "Tests resolving a unqualified name without any known aliases."

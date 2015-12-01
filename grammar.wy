@@ -94,7 +94,6 @@
 %start formal_parameter
 %start formal_parameters
 %start formal_parameter_list
-%start formal_parameter_initialiser
 %start attribute_declaration
 %start attribute_opt
 %start attribute_initialiser
@@ -111,6 +110,8 @@
 %start function_body
 %start function_declarator
 %start static_or_access_modifiers
+%start variable_declaration
+%start variable_initialiser
 
 %%
 
@@ -238,24 +239,33 @@ formal_parameters: LPAREN
                  | formal_parameter RPAREN
                  ;
 
-formal_parameter: type_hint T_VARIABLE formal_parameter_initialiser
+;; TODO reintroduce formal_parameter_initialiser because instantiation
+;; is not supported for formal parameters.
+formal_parameter: type_hint T_VARIABLE variable_initialiser
                ;; NAME TYPE DEFAULT-VALUE &rest ATTRIBUTES
                   (VARIABLE-TAG $2 (or $1 (car $3)) (cdr $3))
                 ;
 
-formal_parameter_initialiser: ;; EMPTY
-                              (cons "mixed" "*uninitialised*")
-                            | T_EQUAL T_NULL
-                              (cons "null" "null")
-                            | T_EQUAL boolean
-                              (cons "boolean" $2)
-                            | T_EQUAL BRACK_BLOCK
-                              (cons "array" $2)
-                            | T_EQUAL T_CONSTANT_ENCAPSED_STRING
-                              (cons "string" $2)
-                            | T_EQUAL T_NUMBER
-                              (cons "number" $2)
-                            ;
+;; Used by the analyser
+variable_declaration: T_VARIABLE variable_initialiser
+                      (VARIABLE-TAG $1 (car $2) (cdr $2))
+                    ;
+
+variable_initialiser: ;; EMPTY
+                      (cons "mixed" "*uninitialised*")
+                    | T_EQUAL T_NULL
+                      (cons "null" "null")
+                    | T_EQUAL class_instantiation
+                      (cons $2 $2)
+                    | T_EQUAL boolean
+                      (cons "boolean" $2)
+                    | T_EQUAL BRACK_BLOCK
+                      (cons "array" $2)
+                    | T_EQUAL T_CONSTANT_ENCAPSED_STRING
+                      (cons "string" $2)
+                    | T_EQUAL T_NUMBER
+                      (cons "number" $2)
+                    ;
 
 access_modifier: T_PUBLIC
                | T_PROTECTED

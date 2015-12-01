@@ -12,18 +12,13 @@
 (require 'semantic/wisent)
 (require 'grammar)
 
-;; (defun semantic-php-init-parser-context ()
-;;   "Initialize context of the LR parser engine.
-;; Used as a local `wisent-pre-parse-hook' to cleanup the stack of imported symbols."
-;;   (setq semantic-php-cache--namespaces nil))
-
-;; TODO: Handle file name resolution outside of ede-php-autoload projects.
 (define-mode-local-override semantic-tag-include-filename php-mode (tag)
   "Maps a PHP qualified class name to a file.
 
   This allows Semantic to known about symbols used in this buffer
   and defined in a different file."
 
+  ;; TODO: Handle filename resolution outside of ede-php-autoload projects.
   (let ((class-name (semantic-tag-name tag)))
     (if (and (featurep 'ede-php-autoload) (ede-current-project))
         (let ((file-name (ede-php-autoload-find-class-def-file (ede-current-project) class-name)))
@@ -32,26 +27,38 @@
             class-name))
       class-name)))
 
-(define-mode-local-override semantic-analyze-split-name php-mode (name)
-  "Split up tag NAME into multiple parts by T_NS_SEPARATOR."
-  (let ((ans (split-string name "\\\\")))
-    (if (= (length ans) 1)
-	name
-      (delete "" ans))))
-
-(define-mode-local-override semantic-analyze-unsplit-name php-mode (namelist)
-  "Reassembles the components of NAMELIST into a qualified name."
-  (mapconcat 'identity namelist "\\"))
+;; NOTE temporary, until I figure out a better way to analyse assignments.
+(define-mode-local-override semantic-get-local-variables php-mode (&optional point)
+  "Overrides the default based on Bovine which hangs editing.")
 
 (defun grammar-setup ()
   "Setup a new grammar to process PHP buffers using Semantic."
 
-  ;; (add-hook 'wisent-pre-parse-hook 'semantic-php-parser-context nil t)
   (grammar--install-parser)
 
   (setq
    ;; Lexical analysis
    semantic-lex-analyzer 'grammar-lexer
+
+   semantic-lex-syntax-modifications
+   '(
+     (?= ".")
+     (?& ".")
+     (?+ ".")
+     (?- ".")
+     (?| ".")
+     (?< ".")
+     (?> ".")
+     (?% ".")
+     (?' "\"")
+     (?\" "\"")
+     (?` "\"")
+     (?_ "w")
+     (?$ "_")
+     (?/ ". 124b")
+     (?* ". 23")
+     (?\n "> b")
+     (?# "< b"))
 
    ;; Semantic requires this expression for line-comments, if lexing
    ;; without major mode.

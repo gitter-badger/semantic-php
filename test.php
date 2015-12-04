@@ -39,6 +39,7 @@ class TestClass
             $list = [];
             $this->publicMethod();
             $date = new \DateTime();
+
             foreach ($list as $index => $value) {
                 if ($index == 1) {
                     // (semantic-beginning-of-context) takes you to {

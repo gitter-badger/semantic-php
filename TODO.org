@@ -1,0 +1,175 @@
+These imports will all emit a TYPE-TAG in the parser.
+The class of type is as follows:
+
+- class: normally use statement is used to import one
+class in the current scope.
+- function: when importing a function we emit a function tag
+- variable: when importing a constant we emit a variable tag with :constant flag
+- namespace: when a type of kind class is created, it
+could in actuality represent a namespace, this can be
+determined by hitting the file system for a directory
+using a PSR mapping.
+
+#+BEGIN_SRC php
+use some\namespace\ClassA;
+use some\namespace\ClassB;
+use some\namespace\ClassC as C;
+
+use function some\namespace\fn_a;
+use function some\namespace\fn_b;
+use function some\namespace\fn_c;
+
+use const some\namespace\ConstA;
+use const some\namespace\ConstB;
+use const some\namespace\ConstC;
+#+END_SRC
+
+The default context assumes the base namespace is that declared with
+the first top level namespace declaration. All tags have their literal
+name, and all names are resolved to canonical form based on the position
+of the point.
+
+#+BEGIN_SRC php
+namespace First;
+
+class SomeClass { public function A() {} }
+
+namespace Second;
+
+class SomeClass { public function B() {} }
+
+namespace;
+
+$first = new First\SomeClass();
+$second = new Second\SomeClass();
+#+END_SRC
+
+Further work will be done on the parser to be able to associate tags
+in the buffer with the namespace that contains them.
+
+When the cursor hovers a class name the context analyser must be aware
+that the class belongs to the current namespace. When the name has an
+import rule (i.e., a use declaration) the analyser must also know its
+original name in case it's an alias.
+
+#+BEGIN_SRC php
+use First\SomeClass as FirstClass;
+
+$fisrt = new FirstClass(); => type FirstClass is alias of First\SomeClass
+#+END_SRC
+
+Working with the analyser requires finding an attach point that isn't triggered
+on every reparse, otherwise we could end screwing up its entire state. Instead
+part of the work needs to use the context analyser functions and defining
+the scope.
+
+Namespace scopes:
+file without namespace:
+the global namespace is implied
+
+file with braced namespaces
+the scope of the brackets dictates the namespace name
+
+file with one semicolon namespace
+the block between the namespace declaration and end of file dictates the namespace
+
+file with multiple semicolon namespaces
+the block between two namespace declarations dictate the namespace,
+the last namespace is handled from its declaration to the end of file.
+
+The function that controls prefixing a symbol name by the implied package is:
+~(define-overloadable-function semantic-ctxt-imported-packages (&optional point)~
+
+In <http://sourceforge.net/p/cedet/mailman/message/24942907/> Eric Ludlam says
+
+#+BEGIN_QUOTE
+These languages probably need to create an override function for
+semantic-ctxt-imported-packages.  The one in semantic-c.el shows it
+getting a bunch of using statements.
+
+For going the opposite way (applying a namespace like construct to
+declarations), adding a new semantic-ctxt-* type function may be needed.
+
+Alternately, the parser could identify that statement, then apply a
+:parent attribute to the tags created afterward.  That would then feed
+through the scope calculator ok.
+#+END_QUOTE
+
+
+#+BEGIN_QUOTE
+> The breadcrumbs code uses semantic-calculate-scope and falls back to
+> semantic-find-tag-by-overlay. I wouldn't dare to put these into :eval
+> and let them run on redisplay. Running in post-command-hook and in
+> reparse hooks seems to be OK though. Do you know whether there are
+> worst-cases which would make this approach impractical?
+
+Scope calculations are pretty quick, but even so, if you call any of the
+routines that needs to build up the semanticdb typecache, it is worth
+doing it as a semantic-idle service.  The semantic idle service will
+build up all the time consuming data structures such as the latest edit
+reparses, typecache, scope, and parsing all the stray headers that are
+needed.  Once it's done with that, it dispatches to all the idle time
+services.
+
+If you need to calculate a scope, or do any sort of analysis, but do it
+during the reparse hooks, you will force data structure rebuilds before
+the idle timer gets to it.
+
+Making a new idle service is pretty easy, as you can use
+define-semantic-idle-service to define your feature.  There are plenty
+of examples in semantic-idle.el with semantic-idle-tag-highlight being
+pretty simple.
+
+You may want to consider a "fast" answer, and a "detailed" answer
+solution.  The immediate feedback variant would use the 'fast' answer,
+and an idle mode could then enable a better answer later.
+#+END_QUOTE
+
+Current experimentation: raise 'import tags on parse, these will define
+the name resolution rules.
+
+All instances of qualified names and function names in a buffer a TYPE
+tag is emitted. These will need to be qualified when entering semanticdb.
+
+
+** On manipulating import tags
+reference: http://sourceforge.net/p/cedet/mailman/message/32880876/
+#+BEGIN_QUOTE
+Converting a tag generated by the grammar into something used in the
+buffer is a multi-step process.
+
+The "tags" returned from the parser can have additional internal
+structure that represents a sort of "multi-tag" nature, or you can add
+any other data you need.
+
+For example, in the C parser, the "name" of the variable:
+
+int x,y,z;
+
+is a list of 3 names, then the expand-tag function re-assembles that tag
+into 3 new tags.
+
+In wisent/python.el you will see it is already monkeying around with the
+tags.  In your case, your rule:
+
+    | FROM dotted_name_module IMPORT import_block
+
+
+could have an action of:
+
+     (:module-name $2  :import $4)
+
+and then that could be stuck in as the "name" of the import.
+
+Then back in python.el's semantic-python-expand-tag function could
+re-assemble all the :import parts with the :module-name and then deal
+those out into the different include tags.  You could also tag the
+import as a module instead of an include if that makes sense by changing
+the tag class to any symbol you want.   If you invent a new kind of tag
+class, you will need to update the tag formatters and other entries that
+try to convert tags into other formats.
+
+If you feel more clever, you could stash the character locations of the
+2nd and 3rd module using $region inside the import_block, and then use
+that to give those tags different positions in the buffer.
+#+END_QUOTE

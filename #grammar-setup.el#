@@ -57,7 +57,7 @@
 
    ;; Semantic requires this expression for line-comments, if lexing
    ;; without major mode.
-   ;; semantic-lex-comment-regex "\\s<\\|\\(/\\*\\|//\\)"
+   semantic-lex-comment-regex "\\s<\\|\\(/\\*\\|//\\)"
 
    ;; TODO: Don't ignore comment to allow docblock to scan types.
    parse-sexp-ignore-comments t
@@ -70,10 +70,11 @@
    '((type     . "Classes")
      (variable . "Attributes")
      (function . "Methods"))
-
    semantic-symbol->name-assoc-list
-   '((package  . "Provides")
-     (using    . "Imports"))
+
+   (append semantic-symbol->name-assoc-list-for-type-parts
+           '((package  . "In this pacakge")  ;; TODO add symbols in the same namespace
+             (include  . "Imported packages")))
 
    ;; navigation inside 'type children
    senator-step-at-tag-classes '(function variable type)

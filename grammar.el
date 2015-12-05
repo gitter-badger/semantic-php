@@ -3,7 +3,7 @@
 ;; Copyright (C) 2015 Andrea Turso
 
 ;; Author: Andrea Turso <trashofmasters@gmail.com>
-;; Created: 2015-12-04 05:13:23+0000
+;; Created: 2015-12-05 14:09:19+0000
 ;; Keywords: syntax
 ;; X-RCS: $Id$
 
@@ -138,67 +138,47 @@
      '((T_NUMBER T_STRING T_CONSTANT_ENCAPSED_STRING T_ENCAPSED_AND_WHITESPACE T_VARIABLE mbstring LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK PAREN_BLOCK BRACE_BLOCK BRACK_BLOCK T_OPEN_TAG T_CLOSE_TAG S_NS_SCOPE T_COLON T_SEMICOLON T_EQUAL T_COMMA T_SCOPE_RES T_NS_SEPARATOR T_AS T_USE T_CONST T_NULL T_TRUE T_FALSE T_NEW T_NAMESPACE T_CLASS T_ABSTRACT T_FINAL T_EXTENDS T_IMPLEMENTS T_PUBLIC T_PRIVATE T_PROTECTED T_STATIC T_FUNCTION T_ARRAY T_VAR T_TYPE_ARRAY T_TYPE_INT T_TYPE_BOOL T_TYPE_FLOAT T_TYPE_STRING T_TYPE_CALLABLE T_TYPE_SELF T_TYPE_PARENT)
        nil
        (grammar
-        ((namespace_declaration
-          (progn
-            (message "TOP: entering NS decl")
-            $1))
+        ((namespace_declaration)
          (progn
-           (message "TOP: function_declaration")
-           $1))
-        ((class_declaration)
-         (progn
-           (message "TOP: class_declaration")
-           $1))
-        ((use_declaration)
-         (progn
-           (message "TOP: use_declaration")
-           $1))
-        ((function_declaration)
-         (progn
-           (message "TOP: function_declaration")
+           (message "TOP: entering NS decl")
            $1)))
        (namespace_declaration
-        ((T_NAMESPACE qualified_name namespace_block)
-         (progn
-           (message "namespace_declaration: TYPE-TAG 'namespace")
-           (wisent-raw-tag
-            (semantic-tag-new-type $2 "namespace" $3 nil)))))
-       (namespace_block
+        ((T_NAMESPACE qualified_name namespace_body)
+         (wisent-raw-tag
+          (semantic-tag-new-type $2 "namespace" $3 nil))))
+       (namespace_body
         ((S_NS_SCOPE)
          (progn
-           (message "namespace_block: %s" $1)
-           (semantic-parse-region
-            (car $region1)
-            (cdr $region1)
-            'namespace_subparts 1))))
+           (if $region1
+               (semantic-parse-region
+                (car $region1)
+                (cdr $region1)
+                'namespace_subparts nil)
+             (error "Invalid form (EXPANDFULL %s %s)" $region1 'namespace_subparts)))))
        (namespace_subparts
         (nil nil)
         ((T_SEMICOLON)
          nil)
-        ((use_declaration)
-         (progn
-           (message "NS: use_declaration")
-           $1))
-        ((class_declaration)
-         (progn
-           (message "NS: class_declaration")
-           $1))
-        ((function_declaration)
-         (progn
-           (message "NS: function_declaration")
-           $1)))
+        ((use_declaration))
+        ((class_declaration))
+        ((function_declaration)))
        (use_declaration
         ((T_USE use_type qualified_name T_SEMICOLON)
          (wisent-raw-tag
           (semantic-tag $3 'using :type
                         (wisent-raw-tag
-                         (semantic-tag-new-type $3 $2 nil nil :prototype t)))))
+                         (semantic-tag-new-type $3 $2 nil nil :prototype t))
+                        :include
+                        (wisent-raw-tag
+                         (semantic-tag-new-include $3 nil)))))
         ((T_USE use_type qualified_name T_AS T_STRING T_SEMICOLON)
          (wisent-raw-tag
           (semantic-tag $5 'using :type
                         (wisent-raw-tag
                          (semantic-tag-new-type $3 $2 nil nil :prototype t))
-                        :kind 'alias))))
+                        :include
+                        (wisent-raw-tag
+                         (semantic-tag-new-include $3 nil))))))
        (use_type
         ((T_CONST)
          (identity 'variable))
@@ -510,9 +490,9 @@ declarations."
     (save-excursion
       (semantic-lex-unterminated-syntax-protection 'S_NS_SCOPE
         (re-search-forward "^namespace .+;\\|\\'")
+        (setq semantic-lex-end-point (point))
         (match-beginning 0)))))
-  (setq semantic-lex-end-point (point))
-  (message "NS analysis"))
+  nil)
 
 (define-lex grammar-lexer
   "Lexical analyzer that handles PHP buffers.

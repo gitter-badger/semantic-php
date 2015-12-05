@@ -51,6 +51,13 @@
   ;; (add-hook 'wisent-pre-parse-hook 'semantic-php-parser-context nil t)
   (grammar--install-parser)
 
+  (setq semantic-tag-expand-function
+        (lambda (tag)
+          (when (and (semantic-tag-of-class-p tag 'using) (semantic-tag-get-attribute tag :include))
+            (message "Expanding use to include %s" (semantic-tag-name tag))
+            (list (semantic-tag-get-attribute tag :include))
+        )))
+
   (setq
    ;; Lexical analysis
    semantic-lex-analyzer 'grammar-lexer
